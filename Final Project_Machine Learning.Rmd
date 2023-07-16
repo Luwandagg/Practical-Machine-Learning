@@ -1,0 +1,180 @@
+---
+title: "Practical Machine Learning Final Project"
+author: "Andrew Luwandagga"
+date: "2023-07-15"
+output: html_document
+---
+
+
+## Background
+
+This final project is for the online John Hopkins Course delivered on Coursera
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: 
+
+http://groupware.les.inf.puc-rio.br/har
+
+##data sets
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: 
+http://groupware.les.inf.puc-rio.br/har
+
+## Approach to the Project
+
+I used cleaned the datasets and used three machine learning algorithms which inlcude the Naivebayes, Decision trees and Random forests
+
+I partitioned the training dataset into training and testing set to evaluate the models and find the best model to proceed with the final predictions.
+
+##Results
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases
+
+#loading the required packages
+```{r warning=FALSE, error=FALSE}
+library(rattle)
+library(caret)
+library(randomForest)
+library(e1071)
+library(caTools)
+library(tidyverse)
+
+
+```
+
+
+#setting the working directory and improting the datasets
+```{r warning=FALSE, error=FALSE}
+setwd("C:/Users/aluwandagga/Desktop/R/Coursera/John Hopkins/Final Project")
+Train_dataset <- read.csv("pml-training.csv")
+Test_dataset <- read.csv("pml-testing.csv")
+```
+
+#examining the dimensions and structures of the dataset
+```{r warning=FALSE, error=FALSE}
+dim(Train_dataset)
+dim(Test_dataset)
+str(Train_dataset)
+str(Test_dataset)
+
+```
+
+#examining is the dataset has missing values and columns
+```{r warning=FALSE, error=FALSE}
+sum(is.na(Train_dataset))
+sum(is.na( Test_dataset))
+
+```
+
+I found out that the data has missing values in some columns
+
+#performing data cleaning forexample removing columns with NAs and removing irrelevant columns
+
+```{r warning=FALSE, error=FALSE}
+#Removing columns username, raw_timestamp_part_1 which not add value to the models
+Training <- Train_dataset[, -c(1:5)]
+Testing <- Test_dataset[, -c(1:5)]
+dim(Training)
+dim(Testing)
+rm(Train_dataset)
+rm(Test_dataset)
+```
+
+
+```{r warning=FALSE, error=FALSE}
+#The code snippet you provided is used to remove columns that contain missing values (NAs) from the Training and Testing data frames
+colNa <- colSums(is.na(Training)) == 0
+Training <- Training[, colNa]
+Testing <- Testing[, colNa]
+rm(colNa)
+
+```
+
+#Partitioning the training dataset to create the training and validation sets
+```{r warning=FALSE, error=FALSE}
+# Set the seed for reproducibility
+set.seed(45578)
+
+#setting the proportion of the training dataset to 70% and the validation set to 30%
+inTrain <- createDataPartition(Training$classe, p = 0.70, list = FALSE)
+Training <- Training[inTrain, ]
+Validation <- Training[-inTrain, ]
+rm(inTrain)
+
+```
+
+
+#using the Decision Tree Model
+```{r warning=FALSE, error=FALSE}
+# Set the seed for reproducibility
+set.seed(45578)
+
+XY <- train(x = Training %>% select(-classe),
+            y = Training$classe,
+            method = "rpart",
+            parms = list(split = 'information'),
+            metric = "Accuracy"
+)
+
+# checking the Model performance on the Validation set
+Predict_DT <- predict(XY, Validation)
+Validation$classe <- factor(Validation$classe, levels = levels(PredictTree))
+CM_DT<-confusionMatrix(Validation$classe, PredictTree)
+CM_DT
+rm(Predict_DT)
+
+```
+
+#Using the Naivebayes Algorithm
+```{r warning=FALSE, error=FALSE}
+# Set the seed for reproducibility
+set.seed(45578)
+NBmodel <- naiveBayes(classe ~ ., data = Training)
+
+#predictions
+pre_nb<-predict(NBmodel, newdata = Validation %>% select(-classe))
+
+confusion_matrix <- confusionMatrix(pre_nb, Validation$classe)
+
+confusion_matrix
+rm(pre_nb)
+
+```
+
+#using the KNN algorithm
+```{r warning=FALSE, error=FALSE}
+
+control=trainControl(method = "cv", number = 10)
+
+
+set.seed(45578)
+KNN_model <- train(
+  x = Training %>% select(-classe),    
+  y = Training$classe,                 
+  method = "knn",                        
+  trControl = control,                   
+  preProcess = c("center", "scale")      
+)
+
+#prediction on the validation set
+
+Predict_KNN <- predict(KNN_model, Validation)
+CM_KNN<-confusionMatrix(Validation$classe, Predict_KNN)
+CM_KNN
+
+
+## Predicting the classe for the using the KNN on the testing dataset
+
+predict(KNN_model, Testing[, -length(names(Testing))])
+
+```
+
+
+
